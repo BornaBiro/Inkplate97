@@ -141,11 +141,9 @@ class Inkplate : public Adafruit_GFX {
     //BLACK->WHITE
 	//THIS IS OKAYISH WAVEFORM FOR GRAYSCALE. IT CAN BE MUCH BETTER.
 	const uint8_t waveform3Bit[8][8] = {{0, 0, 0, 0, 1, 1, 1, 0}, {1, 2, 2, 2, 1, 1, 1, 0}, {0, 1, 1, 1, 2, 2, 1, 0}, {0, 0, 1, 1, 1, 1, 2, 0}, {0, 0, 0, 1, 1, 1, 2, 0}, {2, 1, 1, 1, 2, 1, 2, 0}, {1, 1, 1, 2, 1, 2, 2, 0}, {0, 0, 0, 0, 0, 0, 2, 0}};
+    uint32_t pinLUT[256];
     uint32_t* GLUT;
     uint32_t* GLUT2;
-	
-	//PVI waveform for cleaning screen, not sure if it is correct, but it cleans screen properly.
-    const uint32_t waveform[50] = {0x00000008, 0x00000008, 0x00200408, 0x80281888, 0x60a81898, 0x60a8a8a8, 0x60a8a8a8, 0x6068a868, 0x6868a868, 0x6868a868, 0x68686868, 0x6a686868, 0x5a686868, 0x5a686868, 0x5a586a68, 0x5a5a6a68, 0x5a5a6a68, 0x55566a68, 0x55565a64, 0x55555654, 0x55555556, 0x55555556, 0x55555556, 0x55555516, 0x55555596, 0x15555595, 0x95955595, 0x95959595, 0x95949495, 0x94949495, 0x94949495, 0xa4949494, 0x9494a4a4, 0x84a49494, 0x84948484, 0x84848484, 0x84848484, 0x84848484, 0xa5a48484, 0xa9a4a4a8, 0xa9a8a8a8, 0xa5a9a9a4, 0xa5a5a5a4, 0xa1a5a5a1, 0xa9a9a9a9, 0xa9a9a9a9, 0xa9a9a9a9, 0xa9a9a9a9, 0x15151515, 0x11111111};
 	
 	struct bitmapHeader {
 		uint16_t signature;
@@ -185,9 +183,7 @@ class Inkplate : public Adafruit_GFX {
 	void vscan_write();
 	void hscan_start(uint32_t _d = 0);
 	void vscan_end();
-	void clean();
     void cleanFast(uint8_t c, uint8_t rep);
-    void cleanFast2(uint8_t c, uint8_t n, uint16_t d);
     void pinsZstate();
     void pinsAsOutputs();
 	

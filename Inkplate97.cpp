@@ -19,110 +19,116 @@ SdFat sd(&spi2);
 
 
 //--------------------------USER FUNCTIONS--------------------------------------------
-Inkplate::Inkplate(uint8_t _mode) : Adafruit_GFX(E_INK_WIDTH, E_INK_HEIGHT) {
-  _displayMode = _mode;
+Inkplate::Inkplate(uint8_t _mode) : Adafruit_GFX(E_INK_WIDTH, E_INK_HEIGHT)
+{
+    _displayMode = _mode;
+      for (uint32_t i = 0; i < 256; ++i)
+        pinLUT[i] = ((i & B00000011) << 4) | (((i & B00001100) >> 2) << 18) | (((i & B00010000) >> 4) << 23) |
+                    (((i & B11100000) >> 5) << 25);
 }
 
-void Inkplate::begin(void) {
-  if(_beginDone == 1) return;
-  Wire.begin();
-  WAKEUP_SET;
-  delay(1);
-  Wire.beginTransmission(0x48);
-  Wire.write(0x09);
-  Wire.write(B00011011); // Power up seq.
-  Wire.write(B00000000); // Power up delay (3mS per rail)
-  Wire.write(B00011011); // Power down seq.
-  Wire.write(B00000000); // Power down delay (6mS per rail)
-  Wire.endTransmission();
-  delay(1);
-  WAKEUP_CLEAR;
-  memset(mcpRegsInt, 0, 22);
-  memset(mcpRegsEx, 0, 22);
+void Inkplate::begin(void)
+{
+    if(_beginDone == 1) return;
+    Wire.begin();
+    memset(mcpRegsInt, 0, 22);
+    memset(mcpRegsEx, 0, 22);
+    mcpBegin(MCP23017_INT_ADDR, mcpRegsInt);
+    mcpBegin(MCP23017_EXT_ADDR, mcpRegsEx);
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, VCOM, OUTPUT);
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, PWRUP, OUTPUT);
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, WAKEUP, OUTPUT);
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, GPIO0_ENABLE, OUTPUT);
+    digitalWriteInternal(MCP23017_INT_ADDR, mcpRegsInt, GPIO0_ENABLE, HIGH);
   
-  mcpBegin(MCP23017_INT_ADDR, mcpRegsInt);
-  mcpBegin(MCP23017_EXT_ADDR, mcpRegsEx);
+    WAKEUP_SET;
+    delay(1);
+    Wire.beginTransmission(0x48);
+    Wire.write(0x09);
+    Wire.write(B00011011); // Power up seq.
+    Wire.write(B00000000); // Power up delay (3mS per rail)
+    Wire.write(B00011011); // Power down seq.
+    Wire.write(B00000000); // Power down delay (6mS per rail)
+    Wire.endTransmission();
+    delay(1);
+    WAKEUP_CLEAR;
   
-  //Set all pins of seconds I/O expander to outputs, low.
-  //For some reason, it draw more current in deep sleep when pins are set as inputs...
-  for(int i = 0; i<15; i++)
-  {
-      pinModeInternal(MCP23017_EXT_ADDR, mcpRegsInt, i, OUTPUT);
-      digitalWriteInternal(MCP23017_EXT_ADDR, mcpRegsInt, i, LOW);
-  }
+    // Set all pins of seconds I/O expander to outputs, low.
+    // For some reason, it draw more current in deep sleep when pins are set as inputs...
+    for(int i = 0; i < 15; i++)
+    {
+        pinModeInternal(MCP23017_EXT_ADDR, mcpRegsInt, i, OUTPUT);
+        digitalWriteInternal(MCP23017_EXT_ADDR, mcpRegsInt, i, LOW);
+    }
   
-  //For same reason, unused pins of first I/O expander have to be also set as outputs, low.
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 13, OUTPUT);
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 14, OUTPUT);
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 15, OUTPUT);
-  digitalWriteInternal(MCP23017_INT_ADDR, mcpRegsInt, 13, LOW);
-  digitalWriteInternal(MCP23017_INT_ADDR, mcpRegsInt, 14, LOW);
-  digitalWriteInternal(MCP23017_INT_ADDR, mcpRegsInt, 15, LOW);
-  
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, VCOM, OUTPUT);
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, PWRUP, OUTPUT);
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, WAKEUP, OUTPUT);
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, GPIO0_ENABLE, OUTPUT);
-  digitalWriteInternal(MCP23017_INT_ADDR, mcpRegsInt, GPIO0_ENABLE, HIGH);
+    // For same reason, unused pins of first I/O expander have to be also set as outputs, low.
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 13, OUTPUT);
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 14, OUTPUT);
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 15, OUTPUT);
+    digitalWriteInternal(MCP23017_INT_ADDR, mcpRegsInt, 13, LOW);
+    digitalWriteInternal(MCP23017_INT_ADDR, mcpRegsInt, 14, LOW);
+    digitalWriteInternal(MCP23017_INT_ADDR, mcpRegsInt, 15, LOW);
 
-  //CONTROL PINS
-  pinMode(0, OUTPUT);
-  pinMode(2, OUTPUT);
-  pinMode(32, OUTPUT);
-  pinMode(33, OUTPUT);
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, OE, OUTPUT);
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, GMOD, OUTPUT);
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, SPV, OUTPUT);
-  //pinMode(SPV, OUTPUT);
+    // CONTROL PINS
+    pinMode(0, OUTPUT);
+    pinMode(2, OUTPUT);
+    pinMode(32, OUTPUT);
+    pinMode(33, OUTPUT);
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, OE, OUTPUT);
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, GMOD, OUTPUT);
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, SPV, OUTPUT);
 
-  //DATA PINS
-  pinMode(4, OUTPUT); //D0
-  pinMode(5, OUTPUT);
-  pinMode(18, OUTPUT);
-  pinMode(19, OUTPUT);
-  pinMode(23, OUTPUT);
-  pinMode(25, OUTPUT);
-  pinMode(26, OUTPUT);
-  pinMode(27, OUTPUT); //D7
+   // DATA PINS
+    pinMode(4, OUTPUT); //D0
+    pinMode(5, OUTPUT);
+    pinMode(18, OUTPUT);
+    pinMode(19, OUTPUT);
+    pinMode(23, OUTPUT);
+    pinMode(25, OUTPUT);
+    pinMode(26, OUTPUT);
+    pinMode(27, OUTPUT); //D7
   
-  //TOUCHPAD PINS
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 10, INPUT);
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 11, INPUT);
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 12, INPUT);
+    // TOUCHPAD PINS
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 10, INPUT);
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 11, INPUT);
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 12, INPUT);
   
-  //Battery voltage Switch MOSFET
-  pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 9, OUTPUT);
+    // Battery voltage Switch MOSFET
+    pinModeInternal(MCP23017_INT_ADDR, mcpRegsInt, 9, OUTPUT);
   
-  D_memory_new = (uint8_t*)ps_malloc(E_INK_WIDTH * E_INK_HEIGHT/8);
-  _partial = (uint8_t*)ps_malloc(E_INK_WIDTH * E_INK_HEIGHT/8);
-  _pBuffer = (uint8_t*) ps_malloc(E_INK_WIDTH * E_INK_HEIGHT/4);
-  D_memory4Bit = (uint8_t*)ps_malloc(E_INK_WIDTH * E_INK_HEIGHT/2);
-  GLUT = (uint32_t*)malloc(256*8*sizeof(uint32_t));
-  GLUT2 = (uint32_t*)malloc(256*8*sizeof(uint32_t));
-  if (D_memory_new == NULL || _partial == NULL || _pBuffer == NULL || D_memory4Bit == NULL) {
-    do {
-      delay(100);
-    } while (true);
-  }
-  memset(D_memory_new, 0, E_INK_WIDTH * E_INK_HEIGHT/8);
-  memset(_partial, 0, E_INK_WIDTH * E_INK_HEIGHT/8);
-  memset(_pBuffer, 0, E_INK_WIDTH * E_INK_HEIGHT/4);
-  memset(D_memory4Bit, 255, E_INK_WIDTH * E_INK_HEIGHT/2);
+    D_memory_new = (uint8_t*)ps_malloc(E_INK_WIDTH * E_INK_HEIGHT / 8);
+    _partial = (uint8_t*)ps_malloc(E_INK_WIDTH * E_INK_HEIGHT / 8);
+    _pBuffer = (uint8_t*) ps_malloc(E_INK_WIDTH * E_INK_HEIGHT / 4);
+    D_memory4Bit = (uint8_t*)ps_malloc(E_INK_WIDTH * E_INK_HEIGHT / 2);
+    GLUT = (uint32_t*)malloc(256 * 8 * sizeof(uint32_t));
+    GLUT2 = (uint32_t*)malloc(256 * 8 * sizeof(uint32_t));
+    if (D_memory_new == NULL || _partial == NULL || _pBuffer == NULL || D_memory4Bit == NULL)
+    {
+        do
+        {
+        delay(100);
+        }
+        while (true);
+    }
+    memset(D_memory_new, 0, E_INK_WIDTH * E_INK_HEIGHT/8);
+    memset(_partial, 0, E_INK_WIDTH * E_INK_HEIGHT/8);
+    memset(_pBuffer, 0, E_INK_WIDTH * E_INK_HEIGHT/4);
+    memset(D_memory4Bit, 255, E_INK_WIDTH * E_INK_HEIGHT/2);
   
     for (int j = 0; j < 8; ++j) {
         for (uint32_t i = 0; i < 256; ++i) {
         //GLUT[j][i] = (waveform3Bit[i & 0x07][j] << 2) | (waveform3Bit[(i>>4) & 0x07][j]);
-        uint8_t z = (waveform3Bit[i & 0x07][j] << 2) | (waveform3Bit[(i>>4) & 0x07][j]);
+        uint8_t z = (waveform3Bit[i & 0x07][j] << 2) | (waveform3Bit[(i >> 4) & 0x07][j]);
         GLUT[j*256+i] = ((z & B00000011) << 4) | (((z & B00001100) >> 2) << 18) | (((z & B00010000) >> 4) << 23) |
                         (((z & B11100000) >> 5) << 25);
         //GLUT2[j][i] = ((waveform3Bit[i & 0x07][j] << 2) | (waveform3Bit[(i>>4) & 0x07][j]))<<4;
-        z = ((waveform3Bit[i & 0x07][j] << 2) | (waveform3Bit[(i>>4) & 0x07][j]))<<4;
+        z = ((waveform3Bit[i & 0x07][j] << 2) | (waveform3Bit[(i >> 4) & 0x07][j])) << 4;
         GLUT2[j*256+i] = ((z & B00000011) << 4) | (((z & B00001100) >> 2) << 18) | (((z & B00010000) >> 4) << 23) |
                         (((z & B11100000) >> 5) << 25);
         }
     }
   
-  _beginDone = 1;
+    _beginDone = 1;
 }
 
 //Draw function, used by Adafruit GFX.
@@ -177,7 +183,6 @@ void Inkplate::partialUpdate() {
   if(_displayMode == 1) return;
   if(_blockPartial == 1) display1b();
   uint32_t _pos = (E_INK_WIDTH * E_INK_HEIGHT/8)-1;
-  uint32_t _send;
   uint8_t data;
   uint8_t diffw, diffb;
   uint32_t n = (E_INK_WIDTH * E_INK_HEIGHT/4)-1;
@@ -201,17 +206,15 @@ void Inkplate::partialUpdate() {
     n = (E_INK_WIDTH * E_INK_HEIGHT/4)-1;
     for (int i = 0; i < E_INK_HEIGHT; i++) {
 		data = *(_pBuffer + n);
-        _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
-		hscan_start(_send);
+		hscan_start(pinLUT[data]);
 		n--;
       for (int j = 0; j < ((E_INK_WIDTH/4)-1); j++) {
 		data = *(_pBuffer + n);
-        _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
-          GPIO.out_w1ts = (_send) | CL;
+          GPIO.out_w1ts = (pinLUT[data]) | CL;
           GPIO.out_w1tc = DATA | CL;
 		n--;
       }
-	  GPIO.out_w1ts = (_send) | CL;
+	  GPIO.out_w1ts = CL;
       GPIO.out_w1tc = DATA | CL;
 	  vscan_end();
     }
@@ -537,24 +540,6 @@ void Inkplate::vscan_end() {
   LE_SET;
   LE_CLEAR;
   delayMicroseconds(0);
-  //CKV_SET;
-}
-
-//Clear screan before new screen update using waveform
-void Inkplate::clean() {
-  einkOn();
-  int m = 0;
-  cleanFast(0, 1); //white
-  m++;
-  cleanFast((waveform[m] >> 30) & 3, 8); //White to white
-  m++;
-  cleanFast((waveform[m] >> 24) & 3, 1); //white to black
-  m++;
-  cleanFast((waveform[m]) & 3, 8); //Black to black
-  m++;
-  cleanFast((waveform[m] >> 6) & 3, 1); //Black to white
-  m++;
-  cleanFast((waveform[m] >> 30) & 3, 10); //White to white
 }
 
 //Clears content from epaper diplay as fast as ESP32 can.
@@ -573,29 +558,16 @@ void Inkplate::cleanFast(uint8_t c, uint8_t rep) {
   
   uint32_t _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);;
     for (int k = 0; k < rep; k++) {
-    //uint16_t _pos = 59999;
     vscan_start();
     for (int i = 0; i < E_INK_HEIGHT; i++) {
-      //dram = * (D_memory_new + _pos);
-      //data = LUTB[(dram >> 4) & 0x0F];
-      //_send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
       hscan_start(_send);
-      //data = LUTB[dram & 0x0F];
-      //_send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
       GPIO.out_w1ts = (_send) | CL;
       GPIO.out_w1tc = CL;
-      //_pos--;
       for (int j = 0; j < (E_INK_WIDTH/8)-1; j++) {
-        //dram = * (D_memory_new + _pos);
-        //data = LUTB[(dram >> 4) & 0x0F];
-        //_send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
         GPIO.out_w1ts = CL;
         GPIO.out_w1tc = CL;
-        //data = LUTB[dram & 0x0F];
-        //_send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
         GPIO.out_w1ts = CL;
         GPIO.out_w1tc = CL;
-        //_pos--;
       }
       GPIO.out_w1ts = (_send) | CL;
       GPIO.out_w1tc = DATA | CL;
@@ -603,41 +575,6 @@ void Inkplate::cleanFast(uint8_t c, uint8_t rep) {
     }
     delayMicroseconds(230);
   }
-}
-
-void Inkplate::cleanFast2(uint8_t c, uint8_t n, uint16_t d) {
-	/*
-  uint8_t data;
-  if (c == 0) {
-    data = B10101010;     //White
-  } else if (c == 1) {
-    data = B01010101;     //Black
-  } else if (c == 2) {
-    data = B00000000;     //Discharge
-  } else if (c == 3) {
-    data = B11111111;   //Skip
-  }
-  uint32_t _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
-  begin_frame();
-  for (int k = 0; k < n; k++) {
-
-    for (int i = 0; i < 600; i++) {
-      begin_line();
-      if (k == 0) {
-
-        for (int j = 0; j < 100; j++) {
-          GPIO.out_w1tc = DATA | CL;
-          GPIO.out_w1ts = (_send) | CL;
-          GPIO.out_w1tc = DATA | CL;
-          GPIO.out_w1ts = (_send) | CL;
-        }
-      }
-      end_line();
-    }
-    end_frame();
-	delayMicroseconds(d);
-  }
-  */
 }
 
 void Inkplate::pinsZstate() {
@@ -690,11 +627,10 @@ void Inkplate::display1b() {
 	  *(D_memory_new+i) |= (*(_partial+i));
   }
   uint32_t _pos;
-  uint32_t _send;
+  //uint32_t _send;
   uint8_t data;
   uint8_t dram;
   einkOn();
-  //clean();
   cleanFast(0, 1);
   cleanFast(1, 16);
   cleanFast(2, 1);
@@ -703,96 +639,64 @@ void Inkplate::display1b() {
   cleanFast(1, 16);
   cleanFast(2, 1);
   cleanFast(0, 11);
-  for (int k = 0; k < 5; k++) {
-	_pos = (E_INK_HEIGHT * E_INK_WIDTH / 8) - 1;
-    vscan_start();
-    for (int i = 0; i < E_INK_HEIGHT; i++) {
-	  dram = *(D_memory_new + _pos);
-      data = LUTB[(dram >> 4)&0x0F];
-      _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
-	  hscan_start(_send);
-	  data = LUTB[dram & 0x0F];
-      _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
-	  GPIO.out_w1ts = (_send) | CL;
-      GPIO.out_w1tc = DATA | CL;
-	  _pos--;
-      for (int j = 0; j < ((E_INK_WIDTH/8)-1); j++) {
-		dram = *(D_memory_new + _pos);
-        data = LUTB[(dram >> 4)&0x0F];
-        _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
-		GPIO.out_w1ts = (_send) | CL;
+      for (int k = 0; k < 4; k++) {
+        _pos = (E_INK_HEIGHT * E_INK_WIDTH / 8) - 1;
+        vscan_start();
+        for (int i = 0; i < E_INK_HEIGHT; i++) {
+        dram = *(D_memory_new + _pos);
+        data = LUT2[(dram >> 4) & 0x0F];
+        hscan_start(pinLUT[data] );
+        data = LUT2[dram & 0x0F];
+        GPIO.out_w1ts = pinLUT[data]  | CL;
         GPIO.out_w1tc = DATA | CL;
-        data = LUTB[dram & 0x0F];
-        _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
-		GPIO.out_w1ts = (_send) | CL;
+        _pos--;
+        for (int j = 0; j < ((E_INK_WIDTH/8)-1); j++) {
+            dram = *(D_memory_new + _pos);
+            data = LUT2[(dram >> 4)&0x0F];
+            GPIO.out_w1ts = pinLUT[data] | CL;
+            GPIO.out_w1tc = DATA | CL;
+            data = LUT2[dram & 0x0F];
+            GPIO.out_w1ts = pinLUT[data] | CL;
+            GPIO.out_w1tc = DATA | CL;
+            _pos--;
+        }
+        GPIO.out_w1ts = CL;
         GPIO.out_w1tc = DATA | CL;
-		_pos--;
-      }
-	  GPIO.out_w1ts = (_send) | CL;
-      GPIO.out_w1tc = DATA | CL;
-	  vscan_end();
+        vscan_end();
+        }
+        delayMicroseconds(230);
     }
-    delayMicroseconds(230);
-  }
   
 	_pos = (E_INK_HEIGHT * E_INK_WIDTH / 8) - 1;
     vscan_start();
     for (int i = 0; i < E_INK_HEIGHT; i++) {
 	  dram = *(D_memory_new + _pos);
-      data = LUT2[(dram >> 4)&0x0F];
-      _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
-	  hscan_start(_send);
+      data = LUT2[(dram >> 4) & 0x0F];
+	  hscan_start(pinLUT[data] );
 	  data = LUT2[dram & 0x0F];
-      _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
-	  GPIO.out_w1ts = (_send) | CL;
+	  GPIO.out_w1ts = (pinLUT[data] ) | CL;
       GPIO.out_w1tc = DATA | CL;
 	  _pos--;
       for (int j = 0; j < ((E_INK_WIDTH/8)-1); j++) {
 		dram = *(D_memory_new + _pos);
-        data = LUT2[(dram >> 4)&0x0F];
-        _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
-		GPIO.out_w1ts = (_send) | CL;
+        data = LUT2[(dram >> 4) & 0x0F];
+		GPIO.out_w1ts = (pinLUT[data] ) | CL;
         GPIO.out_w1tc = DATA | CL;
         data = LUT2[dram & 0x0F];
-        _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
-		GPIO.out_w1ts = (_send) | CL;
+		GPIO.out_w1ts = (pinLUT[data] ) | CL;
         GPIO.out_w1tc = DATA | CL;
 		_pos--;
       }
-	  GPIO.out_w1ts = (_send) | CL;
+	  GPIO.out_w1ts = CL;
       GPIO.out_w1tc = DATA | CL;
 	  vscan_end();
     }
     delayMicroseconds(230);
-  /*
-  for (int k = 0; k < 1; k++) {
+    cleanFast(2, 2);
+    cleanFast(3, 1);
     vscan_start();
-    hscan_start();
-	_pos = 59999;
-    for (int i = 0; i < 600; i++) {
-      for (int j = 0; j < 100; j++) {
-        data = discharge[(*(D_memory_new + _pos) >> 4)];
-        _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
-        GPIO.out_w1tc = DATA | CL;
-        GPIO.out_w1ts = (_send) | CL;
-        data = discharge[*(D_memory_new + _pos) & 0x0F];
-        _send = ((data & B00000011) << 4) | (((data & B00001100) >> 2) << 18) | (((data & B00010000) >> 4) << 23) | (((data & B11100000) >> 5) << 25);
-        GPIO.out_w1tc = DATA | CL;
-        GPIO.out_w1ts = (_send) | CL;
-		_pos--;
-      }
-      vscan_write();
-    }
-    CKV_CLEAR;
-    delayMicroseconds(230);
-  }
-  */
-  delay(50);
-  cleanFast(2, 2);
-  cleanFast(3, 1);
-  vscan_start();
-  einkOff();
-  _blockPartial = 0;
+    einkOff();
+    _blockPartial = 0;
 }
 
 //Display content from RAM to display (3 bit per pixel,. 8 level of grayscale, STILL IN PROGRESSS, we need correct wavefrom to get good picture, use it only for pictures not for GFX).
