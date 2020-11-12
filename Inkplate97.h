@@ -140,7 +140,9 @@ class Inkplate : public Adafruit_GFX {
     const uint8_t discharge[16] = {B11111111, B11111100, B11110011, B11110000, B11001111, B11001100, B11000011, B11000000, B00111111, B00111100, B00110011, B00110000, B00001111, B00001100, B00000011, B00000000};
     //BLACK->WHITE
 	//THIS IS OKAYISH WAVEFORM FOR GRAYSCALE. IT CAN BE MUCH BETTER.
-	const uint8_t waveform3Bit[8][8] = {{0, 0, 0, 0, 1, 1, 1, 0}, {1, 2, 2, 2, 1, 1, 1, 0}, {0, 1, 1, 1, 2, 2, 1, 0}, {0, 0, 1, 1, 1, 1, 2, 0}, {0, 0, 0, 1, 1, 1, 2, 0}, {2, 1, 1, 1, 2, 1, 2, 0}, {1, 1, 1, 2, 1, 2, 2, 0}, {0, 0, 0, 0, 0, 0, 2, 0}};
+	//const uint8_t waveform3Bit[8][8] = {{0, 0, 0, 0, 1, 1, 1, 0}, {1, 2, 2, 2, 1, 1, 1, 0}, {0, 1, 1, 1, 2, 2, 1, 0}, {0, 0, 1, 1, 1, 1, 2, 0}, {0, 0, 0, 1, 1, 1, 2, 0}, {2, 1, 1, 1, 2, 1, 2, 0}, {1, 1, 1, 2, 1, 2, 2, 0}, {0, 0, 0, 0, 0, 0, 2, 0}};
+    
+    const uint8_t waveform3Bit[8][8] = {{0, 0, 0, 0, 0, 0, 1, 0}, {0, 0, 2, 2, 2, 1, 1, 0}, {0, 2, 1, 1, 2, 2, 1, 0}, {1, 2, 2, 1, 2, 2, 1, 0}, {0, 2, 1, 2, 2, 2, 1, 0}, {2, 2, 2, 2, 2, 2, 1, 0}, {0, 0, 0, 0, 2, 1, 2, 0}, {0, 0, 2, 2, 2, 2, 2, 0}};
     uint32_t pinLUT[256];
     uint32_t* GLUT;
     uint32_t* GLUT2;
@@ -179,10 +181,9 @@ class Inkplate : public Adafruit_GFX {
     uint8_t readTouchpad(uint8_t);
     int8_t readTemperature();
     double readBattery();
-	void vscan_start();
-	void vscan_write();
-	void hscan_start(uint32_t _d = 0);
-	void vscan_end();
+	void IRAM_ATTR vscan_start();
+	void IRAM_ATTR hscan_start(uint32_t _d = 0);
+	void IRAM_ATTR vscan_end();
     void cleanFast(uint8_t c, uint8_t rep);
     void pinsZstate();
     void pinsAsOutputs();
@@ -209,7 +210,7 @@ class Inkplate : public Adafruit_GFX {
 	uint8_t _beginDone = 0;
 	
 	void display1b();
-    void display3b();
+    void IRAM_ATTR display3b();
 	uint32_t read32(uint8_t* c);
 	uint16_t read16(uint8_t* c);
 	void readBmpHeader(SdFile *_f, struct bitmapHeader *_h);
